@@ -1,0 +1,8 @@
+# Plik .gitignore
+
+# Zależności
+node_modules
+
+# Plik ze zmiennymi środowiskowymi
+.env
+

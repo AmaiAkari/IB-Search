@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wyszukiwarka i Ekstraktor Danych IB Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: url('https://mega.nz/file/sq1XWQ4Y#AVxvb1XPyWhi3qSOJcuTOSDjEDhw4RVeGzJYMYVcM0o');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .result-item, .image-result-item { transition: all 0.3s ease; opacity: 0; transform: translateY(20px); }
+        .result-item.visible, .image-result-item.visible { opacity: 1; transform: translateY(0); }
+        .btn-custom { background-color: #1e73be; color: white; }
+        .btn-custom:hover { background-color: #165a96; }
+        .hidden { display: none; }
+        .content-box { background-color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        #imageResultsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+        .image-result-item img { width: 100%; height: 150px; object-fit: cover; border-radius: 0.5rem; }
+        #imagePreview { max-height: 100px; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8 p-4 rounded-lg content-box shadow-lg">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Ekstraktor Danych Źródłowych</h1>
+            <p class="text-gray-700 mt-2">Wyszukuj strony, obrazy i dźwięki z zaawansowanymi filtrami.</p>
+        </header>
+
+        <div class="p-6 rounded-lg shadow-md mb-8 content-box">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="searchInput" placeholder="Wpisz frazę lub prześlij obraz..." class="flex-grow p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                <button id="searchButton" class="btn-custom font-bold py-3 px-6 rounded-md transition duration-300 shadow-sm flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+                    Wyszukaj
+                </button>
+            </div>
+            
+            <!-- NOWA SEKCJA: Przesyłanie obrazu -->
+            <div id="imageUploadSection" class="hidden mt-4 text-center">
+                <p class="text-sm text-gray-600 mb-2">...lub wyszukaj na podstawie przesłanego obrazu:</p>
+                <input type="file" id="imageUploader" accept="image/*" class="w-full max-w-xs mx-auto text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                <div id="imagePreviewContainer" class="mt-2 hidden"><img id="imagePreview" src="#" alt="Podgląd obrazu" /></div>
+            </div>
+
+            <div class="mt-4">
+                <a href="#" id="toggleAdvanced" class="text-sm text-blue-800 hover:underline">Pokaż wyszukiwanie zaawansowane</a>
+                <div id="advancedSearch" class="hidden mt-4 p-4 bg-gray-50/80 rounded-md border">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="searchType" class="block text-sm font-medium text-gray-700">Typ wyszukiwania</label>
+                            <select id="searchType" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                                <option value="all">Wszystko</option>
+                                <option value="image">Obrazy</option>
+                                <option value="sound">Dźwięki</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="language" class="block text-sm font-medium text-gray-700">Język wyników</label>
+                            <select id="language" class="mt-1 w-full p-2 border border-gray-300 rounded-md"><option value="">Dowolny</option><option value="lang_pl">Polski</option><option value="lang_en">Angielski</option><option value="lang_de">Niemiecki</option></select>
+                        </div>
+                         <div>
+                            <label for="fileTypeInput" class="block text-sm font-medium text-gray-700">Szukaj plików typu (np. pdf)</label>
+                            <input type="text" id="fileTypeInput" placeholder="pdf" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="siteSearchInput" class="block text-sm font-medium text-gray-700">Szukaj w domenie (np. gov.pl)</label>
+                            <input type="text" id="siteSearchInput" placeholder="example.com" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="excludeSiteInput" class="block text-sm font-medium text-gray-700">Wyklucz domeny (np. wikipedia.org)</label>
+                            <input type="text" id="excludeSiteInput" placeholder="wikipedia.org" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="excludeInput" class="block text-sm font-medium text-gray-700">Wyklucz słowa (np. blog)</label>
+                            <input type="text" id="excludeInput" placeholder="forum blog" class="mt-1 w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsContainer" class="p-6 rounded-lg shadow-md min-h-[100px] content-box">
+            <div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold">Wyniki</h2><button id="exportButton" class="btn-custom font-bold py-2 px-4 rounded-md transition duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>Eksportuj do .txt</button></div>
+            <div id="loader" class="text-center hidden py-8"><svg class="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p class="mt-2 text-gray-500">Pobieranie danych...</p></div>
+            <ul id="resultsList" class="space-y-4"></ul>
+            <div id="imageResultsGrid"></div>
+            <p id="initialMessage" class="text-center text-gray-500 py-8">Wyniki wyszukiwania pojawią się w tym miejscu.</p>
+        </div>
+
+        <footer class="text-center mt-8 text-sm text-white font-semibold p-2 rounded-lg" style="background-color: rgba(0,0,0,0.4)"><p>&copy; 2024 - Narzędzie Demonstracyjne</p></footer>
+    </div>
+
+    <script>
+        const allElements = {
+            searchInput: document.getElementById('searchInput'),
+            searchButton: document.getElementById('searchButton'),
+            resultsList: document.getElementById('resultsList'),
+            imageResultsGrid: document.getElementById('imageResultsGrid'),
+            loader: document.getElementById('loader'),
+            initialMessage: document.getElementById('initialMessage'),
+            exportButton: document.getElementById('exportButton'),
+            toggleAdvanced: document.getElementById('toggleAdvanced'),
+            advancedSearch: document.getElementById('advancedSearch'),
+            siteSearchInput: document.getElementById('siteSearchInput'),
+            fileTypeInput: document.getElementById('fileTypeInput'),
+            excludeInput: document.getElementById('excludeInput'),
+            excludeSiteInput: document.getElementById('excludeSiteInput'),
+            searchType: document.getElementById('searchType'),
+            language: document.getElementById('language'),
+            imageUploadSection: document.getElementById('imageUploadSection'),
+            imageUploader: document.getElementById('imageUploader'),
+            imagePreview: document.getElementById('imagePreview'),
+            imagePreviewContainer: document.getElementById('imagePreviewContainer'),
+        };
+
+        let currentResults = [];
+        let uploadedImageBase64 = null;
+
+        allElements.toggleAdvanced.addEventListener('click', (e) => {
+            e.preventDefault();
+            allElements.advancedSearch.classList.toggle('hidden');
+            allElements.toggleAdvanced.textContent = allElements.advancedSearch.classList.contains('hidden') ? 'Pokaż wyszukiwanie zaawansowane' : 'Ukryj wyszukiwanie zaawansowane';
+        });
+        
+        allElements.searchType.addEventListener('change', () => {
+            if (allElements.searchType.value === 'image') {
+                allElements.imageUploadSection.classList.remove('hidden');
+            } else {
+                allElements.imageUploadSection.classList.add('hidden');
+            }
+        });
+        
+        allElements.imageUploader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    uploadedImageBase64 = e.target.result.split(',')[1]; // Pobierz tylko część Base64
+                    allElements.imagePreview.src = e.target.result;
+                    allElements.imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        allElements.searchButton.addEventListener('click', performSearch);
+        allElements.searchInput.addEventListener('keyup', (event) => { if (event.key === 'Enter') performSearch(); });
+        allElements.exportButton.addEventListener('click', exportResults);
+
+        async function performSearch() {
+            const query = allElements.searchInput.value.trim();
+            const imageFile = allElements.imageUploader.files[0];
+
+            if (!query && !imageFile) {
+                alert('Proszę wpisać frazę lub przesłać obraz.');
+                return;
+            }
+
+            prepareUIForSearch();
+
+            if (imageFile && allElements.searchType.value === 'image' && uploadedImageBase64) {
+                await searchByImage();
+            } else {
+                await searchByText(query);
+            }
+            
+            allElements.loader.classList.add('hidden');
+        }
+        
+        function prepareUIForSearch() {
+            allElements.initialMessage.classList.add('hidden');
+            allElements.resultsList.innerHTML = '';
+            allElements.imageResultsGrid.innerHTML = '';
+            allElements.loader.classList.remove('hidden');
+            allElements.exportButton.disabled = true;
+            currentResults = [];
+        }
+
+        async function searchByImage() {
+            try {
+                const response = await fetch('/api/search-by-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: uploadedImageBase64 })
+                });
+                if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+                const searchResults = await response.json();
+                currentResults = searchResults.results || [];
+                displayResults(currentResults, 'image');
+            } catch (error) {
+                handleSearchError(error);
+            }
+        }
+
+        async function searchByText(query) {
+            const params = new URLSearchParams({ q: query });
+            if (allElements.siteSearchInput.value.trim()) params.append('siteSearch', allElements.siteSearchInput.value.trim());
+            if (allElements.fileTypeInput.value.trim()) params.append('fileType', allElements.fileTypeInput.value.trim());
+            if (allElements.excludeInput.value.trim()) params.append('exclude', allElements.excludeInput.value.trim());
+            if (allElements.excludeSiteInput.value.trim()) params.append('excludeSite', allElements.excludeSiteInput.value.trim());
+            if (allElements.searchType.value) params.append('searchType', allElements.searchType.value);
+            if (allElements.language.value) params.append('lr', allElements.language.value);
+
+            try {
+                const response = await fetch(`/api/search?${params.toString()}`);
+                if (!response.ok) throw new Error(`Błąd serwera: ${response.statusText}`);
+                const searchResults = await response.json();
+                currentResults = searchResults.results || [];
+                displayResults(currentResults, allElements.searchType.value);
+            } catch (error) {
+                handleSearchError(error);
+            }
+        }
+        
+        function handleSearchError(error) {
+            console.error("Błąd podczas wyszukiwania:", error);
+            allElements.resultsList.innerHTML = `<li class="text-red-500 text-center">Wystąpił błąd: ${error.message}. Sprawdź konsolę serwera.</li>`;
+        }
+
+        function displayResults(results, type) {
+            if (results.length === 0) {
+                allElements.initialMessage.innerText = `Brak wyników dla podanych kryteriów.`;
+                allElements.initialMessage.classList.remove('hidden');
+                return;
+            }
+            allElements.exportButton.disabled = false;
+            if (type === 'image') displayImageResults(results);
+            else displayTextResults(results);
+        }
+        
+        function displayTextResults(results) {
+             results.forEach((item, index) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'result-item border p-4 rounded-md bg-gray-50/90 hover:bg-gray-100/90 hover:shadow-sm';
+                let dateString = 'Brak daty';
+                if (item.publication_time) {
+                    try { dateString = new Date(item.publication_time).toLocaleDateString('pl-PL', { year: 'numeric', month: 'long', day: 'numeric' }); } catch (e) { dateString = item.publication_time; }
+                }
+                listItem.innerHTML = `
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center">
+                        <div class="flex-grow mb-2 sm:mb-0">
+                            <h3 class="font-semibold text-gray-800">${item.source_title || 'Brak tytułu'}</h3>
+                            <p class="text-sm text-gray-600">${item.snippet || 'Brak opisu.'}</p>
+                        </div>
+                        <div class="text-sm text-gray-600 sm:text-right flex-shrink-0 sm:ml-4"><p><strong>Data:</strong> ${dateString}</p></div>
+                    </div>
+                    <div class="mt-3"><a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-blue-800 text-sm hover:underline break-all">${item.url}</a></div>`;
+                allElements.resultsList.appendChild(listItem);
+                setTimeout(() => listItem.classList.add('visible'), index * 100);
+            });
+        }
+
+        function displayImageResults(results) {
+            results.forEach((item, index) => {
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-result-item group relative';
+                imageItem.innerHTML = `
+                    <a href="${item.contextUrl}" target="_blank" rel="noopener noreferrer">
+                        <img src="${item.imageUrl}" alt="${item.source_title}" class="shadow-lg group-hover:opacity-75 transition-opacity">
+                        <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <p class="text-white text-center text-sm p-2">${item.source_title}</p>
+                        </div>
+                    </a>`;
+                allElements.imageResultsGrid.appendChild(imageItem);
+                setTimeout(() => imageItem.classList.add('visible'), index * 100);
+            });
+        }
+
+        function exportResults() {
+            if (currentResults.length === 0) return;
+            let textContent = `Wyniki wyszukiwania\nData eksportu: ${new Date().toLocaleString('pl-PL')}\n==================================================\n\n`;
+            currentResults.forEach((item, index) => {
+                textContent += `ŹRÓDŁO ${index + 1}\n`;
+                textContent += `Tytuł: ${item.source_title || 'Brak'}\n`;
+                const link = allElements.searchType.value === 'image' ? item.contextUrl : item.url;
+                textContent += `Link: ${link || 'Brak'}\n`;
+                if (allElements.searchType.value !== 'image') {
+                    textContent += `Data publikacji: ${item.publication_time ? new Date(item.publication_time).toLocaleDateString('pl-PL') : 'Brak'}\n`;
+                    textContent += `Fragment: ${item.snippet || 'Brak'}\n`;
+                }
+                textContent += "\n--------------------------------------------------\n\n";
+            });
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `wyniki-${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
+
